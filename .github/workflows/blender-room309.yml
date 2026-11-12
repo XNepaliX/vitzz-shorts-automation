@@ -24,10 +24,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install Blender, FFmpeg and fonts
+      - name: Install Blender, FFmpeg, EGL and fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender ffmpeg fonts-dejavu-core
+          sudo apt-get install -y blender ffmpeg libegl1 libgl1 libglib2.0-0 fonts-dejavu-core
           python -m pip install --upgrade pip
           pip install edge-tts
       - name: Render 3D episode
