@@ -15,9 +15,22 @@ script = os.getenv("SHORT_SCRIPT", "").strip() or (
     "Follow vitzz for more interesting facts."
 )
 
-async def make_voice():
-    communicate = edge_tts.Communicate(script, voice="en-US-GuyNeural", rate="+8%")
-    await communicate.save(str(OUT / "voiceover.mp3"))
+async def make_voice_and_captions():
+    audio_path = OUT / "voiceover.mp3"
+    subtitle_path = OUT / "captions.srt"
+    communicate = edge_tts.Communicate(
+        script,
+        voice=os.getenv("VOICE", "en-US-GuyNeural"),
+        rate=os.getenv("VOICE_RATE", "+8%"),
+    )
+    submaker = edge_tts.SubMaker()
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            with open(audio_path, "ab") as f:
+                f.write(chunk["data"])
+        elif chunk["type"] == "WordBoundary":
+            submaker.feed(chunk)
+    subtitle_path.write_text(submaker.get_srt(), encoding="utf-8")
 
 def make_visual():
     width, height = 1080, 1920
@@ -30,8 +43,9 @@ def make_visual():
     except OSError:
         title_font = body_font = brand_font = ImageFont.load_default()
 
-    draw.rounded_rectangle((70, 250, 1010, 1660), radius=55, fill=(24, 35, 68), outline=(65, 190, 255), width=5)
-    draw.text((110, 340), "DID YOU KNOW?", font=brand_font, fill=(75, 210, 255))
+    draw.rounded_rectangle((70, 180, 1010, 1710), radius=55, fill=(24, 35, 68), outline=(65, 190, 255), width=5)
+    draw.text((110, 280), "DID YOU KNOW?", font=brand_font, fill=(75, 210, 255))
+
     words = topic.upper().split()
     lines, line = [], ""
     for word in words:
@@ -43,30 +57,37 @@ def make_visual():
             line = candidate
     if line:
         lines.append(line)
-    y = 560
+
+    y = 500
     for item in lines[:5]:
         draw.text((110, y), item, font=title_font, fill="white")
         y += 105
 
-    draw.rounded_rectangle((110, 1200, 970, 1450), radius=35, fill=(10, 15, 32))
-    draw.text((150, 1270), "FOLLOW FOR MORE", font=brand_font, fill=(75, 210, 255))
-    draw.text((150, 1350), "VITZZ  •  @vitzzzz-p9v", font=body_font, fill="white")
+    draw.rounded_rectangle((110, 1510, 970, 1660), radius=35, fill=(10, 15, 32))
+    draw.text((150, 1550), "VITZZ  •  @vitzzzz-p9v", font=body_font, fill="white")
     img.save(OUT / "visual.png")
 
 def render_video():
     audio = OUT / "voiceover.mp3"
     image = OUT / "visual.png"
+    subtitles = OUT / "captions.srt"
     video = OUT / "vitzz-short.mp4"
+
+    style = "FontName=DejaVu Sans,FontSize=22,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=180"
+    subtitle_filter = f"subtitles={subtitles}:force_style='{style}'"
+
     subprocess.run([
         "ffmpeg", "-y", "-loop", "1", "-i", str(image), "-i", str(audio),
         "-c:v", "libx264", "-tune", "stillimage", "-c:a", "aac",
-        "-b:a", "192k", "-pix_fmt", "yuv420p", "-shortest",
-        "-vf", "scale=1080:1920,fps=30", str(video)
+        "-b:a", "192k", "-pix_fmt", "yuv420p",
+        "-vf", f"scale=1080:1920,fps=30,{subtitle_filter}",
+        "-shortest", str(video)
     ], check=True)
+
     (OUT / "script.txt").write_text(script, encoding="utf-8")
-    print(f"Created {video}")
+    print(f"Created {video} with burned-in captions")
 
 if __name__ == "__main__":
-    asyncio.run(make_voice())
+    asyncio.run(make_voice_and_captions())
     make_visual()
     render_video()
