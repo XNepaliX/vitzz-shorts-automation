@@ -21,6 +21,9 @@ jobs:
         part: [1, 2]
     env:
       PART: ${{ matrix.part }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,14 +53,10 @@ jobs:
       - name: Verify finished MP4
         run: python validate_video.py "the-girl-in-room-309-part-${{ matrix.part }}.mp4"
       - name: Upload verified episode to YouTube
-        if: ${{ secrets.YT_CLIENT_ID != '' && secrets.YT_CLIENT_SECRET != '' && secrets.YT_REFRESH_TOKEN != '' }}
-        env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        if: ${{ env.YT_CLIENT_ID != '' && env.YT_CLIENT_SECRET != '' && env.YT_REFRESH_TOKEN != '' }}
         run: python upload_youtube.py "the-girl-in-room-309-part-${{ matrix.part }}.mp4"
       - name: Explain publishing setup if credentials are missing
-        if: ${{ secrets.YT_CLIENT_ID == '' || secrets.YT_CLIENT_SECRET == '' || secrets.YT_REFRESH_TOKEN == '' }}
+        if: ${{ env.YT_CLIENT_ID == '' || env.YT_CLIENT_SECRET == '' || env.YT_REFRESH_TOKEN == '' }}
         run: |
           echo "::warning::Render succeeded, but YouTube publishing was skipped. Add YT_CLIENT_ID, YT_CLIENT_SECRET, and YT_REFRESH_TOKEN in repository Actions secrets."
       - name: Upload finished episode artifact
