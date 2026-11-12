@@ -7,5 +7,5 @@ STORIES=[
 async def main():
  txt,end=STORIES[part-1]
  await edge_tts.Communicate(txt+" "+end,"en-US-GuyNeural",rate="-2%",volume="+0%").save(f"voice{part}.mp3")
- subprocess.run(["ffmpeg","-y","-i",f"raw{part}.mp4","-i",f"voice{part}.mp3","-vf",f"subtitles=cap{part}.srt:force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=85'","-t","60","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-c:a","aac","-b:a","128k",f"the-girl-in-room-309-part-{part}.mp4"],check=True)
+ subprocess.run(["ffmpeg","-y","-framerate","10","-i",f"raw{part}_%04d.png","-i",f"voice{part}.mp3","-vf",f"subtitles=cap{part}.srt:force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=85'","-t","60","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-c:a","aac","-b:a","128k",f"the-girl-in-room-309-part-{part}.mp4"],check=True)
 asyncio.run(main())
