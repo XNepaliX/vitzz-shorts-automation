@@ -14,7 +14,7 @@ FRAMES = OUT / "frames"
 OUT.mkdir(exist_ok=True)
 FRAMES.mkdir(exist_ok=True)
 
-WIDTH, HEIGHT, FPS, DURATION = 720, 1280, 12, 60
+WIDTH, HEIGHT, FPS, DURATION = 720, 1280, 10, 60
 FRAME_COUNT = FPS * DURATION
 topic = os.getenv("SHORT_TOPIC", "What your brain does while you sleep").strip()
 script = os.getenv("SHORT_SCRIPT", "").strip() or (
@@ -110,25 +110,28 @@ def draw_brain(draw, cx, cy, t, scale=1.0):
         draw.ellipse((nx-r, ny-r, nx+r, ny+r), fill=(120, 245, 255))
     draw.ellipse((cx-12*s, cy-12*s, cx+12*s, cy+12*s), fill=(255,255,255))
 
+def make_gradient(top, bottom):
+    img = Image.new("RGB", (WIDTH, HEIGHT))
+    draw = ImageDraw.Draw(img)
+    for y in range(HEIGHT):
+        f = y / (HEIGHT - 1)
+        color = tuple(int(lerp(top[i], bottom[i], f)) for i in range(3))
+        draw.line((0, y, WIDTH, y), fill=color)
+    return img
+
+PALETTES = [
+    ((7, 12, 38), (30, 22, 82)),
+    ((8, 20, 48), (15, 70, 105)),
+    ((23, 12, 55), (72, 30, 105)),
+    ((5, 30, 55), (15, 75, 95)),
+    ((12, 15, 48), (48, 35, 95)),
+]
+BACKGROUNDS = [make_gradient(a, b) for a, b in PALETTES]
+
 def draw_scene(frame_index):
     t = frame_index / FPS
     scene = min(4, int(t // 12))
-    local = (t - scene*12) / 12
-    palettes = [
-        ((7, 12, 38), (30, 22, 82)),
-        ((8, 20, 48), (15, 70, 105)),
-        ((23, 12, 55), (72, 30, 105)),
-        ((5, 30, 55), (15, 75, 95)),
-        ((12, 15, 48), (48, 35, 95)),
-    ]
-    top, bottom = palettes[scene]
-    img = Image.new("RGB", (WIDTH, HEIGHT))
-    px = img.load()
-    for y in range(HEIGHT):
-        f = y / (HEIGHT-1)
-        c = tuple(int(lerp(top[i], bottom[i], f)) for i in range(3))
-        for x in range(WIDTH):
-            px[x, y] = c
+    img = BACKGROUNDS[scene].copy()
     d = ImageDraw.Draw(img, "RGBA")
 
     # Floating stars / particles move continuously between frames.
@@ -208,25 +211,11 @@ def render_video():
         "ffmpeg", "-y", "-framerate", str(FPS), "-i", frames_pattern,
         "-i", str(OUT / "voiceover.mp3"),
         "-vf", f"scale=1080:1920:flags=lanczos,subtitles='{subtitle_path}':force_style='{CAPTION_STYLE}'",
-        "-t", str(DURATION), "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
-        "-crf", "21", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-        "-movflags", "+faststart", "-shortest", str(video_path)
+        "-af", "apad", "-t", str(DURATION), "-r", "30", "-c:v", "libx264",
+        "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
+        str(video_path)
     ])
-    # If narration is shorter than 60 seconds, pad the soundtrack with silence
-    # while keeping the full animated 60-second explainer intact.
-    actual = float(subprocess.check_output([
-        "ffprobe", "-v", "error", "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)
-    ], text=True).strip())
-    if actual < DURATION - 0.25:
-        run([
-            "ffmpeg", "-y", "-i", str(video_path), "-f", "lavfi", "-i",
-            "anullsrc=channel_layout=stereo:sample_rate=44100", "-map", "0:v:0",
-            "-map", "0:a:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-            "-af", "apad=pad_dur=60", "-t", "60", "-shortest",
-            str(OUT / "short-padded.mp4")
-        ])
-        (OUT / "short-padded.mp4").replace(video_path)
     probe = subprocess.check_output([
         "ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_name,width,height",
         "-of", "json", str(video_path)
