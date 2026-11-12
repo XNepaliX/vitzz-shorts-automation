@@ -8,7 +8,9 @@ def mat(name,color,metal=0,rough=.6,emission=0):
  m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.use_nodes=True
  bs=m.node_tree.nodes.get("Principled BSDF"); bs.inputs["Base Color"].default_value=(*color,1); bs.inputs["Metallic"].default_value=metal; bs.inputs["Roughness"].default_value=rough
  if emission:
-  bs.inputs["Emission Color"].default_value=(*color,1); bs.inputs["Emission Strength"].default_value=emission
+  if "Emission Color" in bs.inputs: bs.inputs["Emission Color"].default_value=(*color,1)
+  elif "Emission" in bs.inputs: bs.inputs["Emission"].default_value=(*color,1)
+  if "Emission Strength" in bs.inputs: bs.inputs["Emission Strength"].default_value=emission
  return m
 def cube(name,loc,scale,ma, bevel=.08):
  bpy.ops.mesh.primitive_cube_add(size=1,location=loc); o=bpy.context.object; o.name=name; o.dimensions=scale; bpy.ops.object.transform_apply(location=False,rotation=False,scale=True); o.data.materials.append(ma)
@@ -36,11 +38,11 @@ def character(prefix,x,y,z,coat,skin,hair,faceless=False):
  return torso
 def setup(part):
  bpy.ops.object.select_all(action="SELECT"); bpy.ops.object.delete(use_global=False)
- bpy.context.scene.render.engine="BLENDER_EEVEE_NEXT"
+ bpy.context.scene.render.engine="BLENDER_EEVEE"
  sc=bpy.context.scene; sc.render.resolution_x=W; sc.render.resolution_y=H; sc.render.resolution_percentage=100
  sc.render.fps=FPS; sc.frame_start=1; sc.frame_end=DUR*FPS
  sc.render.image_settings.file_format="PNG"; sc.render.image_settings.color_mode="RGB"
- sc.view_settings.view_transform="AgX"
+ sc.view_settings.view_transform="Standard"
  # dark hotel suite
  wall=mat("blue charcoal walls",(.025,.035,.06)); floor=mat("polished floor",(.045,.05,.07),.35,.3)
  wood=mat("dark wood",(.12,.065,.045)); metal=mat("aged brass",(.28,.19,.08),.75,.25)
