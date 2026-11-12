@@ -1,4 +1,4 @@
-name: Generate vitzz Short
+name: Generate animated Short
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       topic:
         description: "Short topic"
         required: true
-        default: "A strange fact about the human brain"
+        default: "What your brain does while you sleep"
       script:
         description: "Optional voiceover script"
         required: false
@@ -26,8 +26,9 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
-      SHORT_TOPIC: ${{ github.event.inputs.topic || 'A strange fact about the human brain' }}
+      SHORT_TOPIC: ${{ github.event.inputs.topic || 'What your brain does while you sleep' }}
       SHORT_SCRIPT: ${{ github.event.inputs.script }}
     steps:
       - name: Check out repository
@@ -44,18 +45,30 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Generate Short
+      - name: Generate animated video
         run: python main.py
-      - name: Verify video output
+      - name: Verify 60-second vertical MP4 and captions
         run: |
-          test -s output/vitzz-short.mp4
-          ffprobe -v error -show_entries stream=codec_name,width,height -of json output/vitzz-short.mp4
+          test -s output/short.mp4
           test -s output/captions.srt
-      - name: Upload video artifact
+          python - <<'PY'
+          import json, subprocess
+          data = json.loads(subprocess.check_output([
+              "ffprobe", "-v", "error", "-show_entries",
+              "format=duration:stream=width,height,codec_name",
+              "-of", "json", "output/short.mp4"
+          ], text=True))
+          video = next(s for s in data["streams"] if s.get("codec_name") == "h264")
+          duration = float(data["format"]["duration"])
+          assert video["width"] == 1080 and video["height"] == 1920, video
+          assert 59.5 <= duration <= 60.5, duration
+          print(f"Verified: {duration:.2f}s, {video['width']}x{video['height']}, H.264")
+          PY
+      - name: Upload finished video and captions
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vitzz-short
+          name: animated-short
           path: output/
           if-no-files-found: warn
           retention-days: 7
