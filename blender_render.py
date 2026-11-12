@@ -1,6 +1,5 @@
-import bpy, math, os, sys, subprocess, asyncio
+import bpy, math, os, sys
 from mathutils import Vector
-import edge_tts
 
 W,H,FPS=540,960,10
 DUR=60
@@ -96,9 +95,6 @@ STORIES=[
  ("At 3:07 in the morning, Arjun received a call from his own phone number. He answered. A little girl whispered, Please, don't let him come inside. Arjun asked who she was. She said, I'm you, from tomorrow. The call died. Three slow knocks came from his bedroom door. A voice outside said, Arjun, open up. It's me. It sounded exactly like him. His phone buzzed. A message from his own number: Whatever happens, do not open the door. The knocking became violent. Arjun looked through the keyhole. The hallway was empty. But he heard breathing behind him. A little girl stood in the corner, holding an old photograph. It showed Arjun beside her, standing in this very room. On the back was a date, twenty years in the future. The girl looked up and whispered, You're not supposed to be alive tonight. Then every light went out.", "STAY TUNED FOR PART 2. TO BE CONTINUED."),
  ("Arjun switched on his phone flashlight. The girl had vanished, but the photograph remained. On its back, he noticed a room number: 309. His phone rang again. The same number. He answered. The girl screamed, He's behind you! Arjun turned. A tall, faceless man stood inches away. He could not move. The stranger pointed toward the mirror. In the reflection, Arjun saw himself smiling, even though his own face was frozen in terror. His reflection raised one finger and wrote on the glass: You died here twenty years ago. Suddenly, the memory returned. A fire in Room 309. Arjun had run inside to save a little girl, but the ceiling collapsed. He had never escaped. The little girl appeared one final time. I'm sorry, she whispered. I tried to warn you. At sunrise, the hotel manager unlocked Room 309. It was empty. No furniture. No phone. Only words on the dusty mirror: ONE MORE ROOM IS AVAILABLE. Downstairs, the reception phone rang. A familiar voice asked, Hello. I'd like to check in. My name is Arjun.", "THE END.")
 ]
-async def audio(part):
- txt,end=STORIES[part-1]; voice="en-US-GuyNeural"
- await edge_tts.Communicate(txt+" "+end,voice,rate="-2%",volume="+0%").save(f"voice{part}.mp3")
 def srt(part):
  txt,end=STORIES[part-1]; words=(txt+" "+end).split(); chunks=[" ".join(words[i:i+8]) for i in range(0,len(words),8)]
  def stamp(s):
@@ -108,7 +104,5 @@ def srt(part):
    a=i*DUR/len(chunks); b=(i+1)*DUR/len(chunks)
    f.write(f"{i+1}\n{stamp(a)} --> {stamp(b)}\n{c}\n\n")
 def main():
- part=int(os.environ["PART"]); sc=setup(part); bpy.ops.render.render(animation=True)
- asyncio.run(audio(part)); srt(part)
- subprocess.run(["ffmpeg","-y","-i",f"raw{part}.mp4","-i",f"voice{part}.mp3","-vf",f"subtitles=cap{part}.srt:force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=85'","-t","60","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-c:a","aac","-b:a","128k",f"the-girl-in-room-309-part-{part}.mp4"],check=True)
+ part=int(os.environ["PART"]); sc=setup(part); bpy.ops.render.render(animation=True); srt(part)
 if __name__=="__main__": main()
