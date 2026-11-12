@@ -11,6 +11,12 @@ on:
         description: "Optional voiceover script"
         required: false
         default: ""
+  push:
+    branches: [main]
+    paths:
+      - "main.py"
+      - ".github/workflows/generate-short.yml"
+      - "requirements.txt"
   schedule:
     - cron: "15 12 * * 1,3,5"
 
@@ -40,9 +46,16 @@ jobs:
           pip install -r requirements.txt
       - name: Generate Short
         run: python main.py
+      - name: Verify video output
+        run: |
+          test -s output/vitzz-short.mp4
+          ffprobe -v error -show_entries stream=codec_name,width,height -of json output/vitzz-short.mp4
+          test -s output/captions.srt
       - name: Upload video artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: vitzz-short
           path: output/
+          if-no-files-found: warn
           retention-days: 7
