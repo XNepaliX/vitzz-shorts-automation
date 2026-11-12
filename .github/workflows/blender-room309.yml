@@ -1,0 +1,40 @@
+name: Render Room 309 in Blender 3D
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'blender_render.py'
+      - '.github/workflows/blender-room309.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2]
+    env:
+      PART: ${{ matrix.part }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Blender, FFmpeg and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          pip install edge-tts
+      - name: Render 3D episode, voiceover and captions
+        run: blender -b -t 2 --python blender_render.py
+      - name: Upload finished episode
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-309-part-${{ matrix.part }}
+          path: the-girl-in-room-309-part-${{ matrix.part }}.mp4
+          if-no-files-found: error
+          retention-days: 7
