@@ -1,4 +1,4 @@
-name: Create horror Short
+name: Build two-part Roblox-style horror story
 on:
   push:
     branches: [main]
@@ -11,24 +11,26 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install FFmpeg and dependencies
+      - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
           pip install pillow edge-tts
-      - name: Generate vertical horror video with voice and captions
+      - name: Render Part 1 and Part 2 with narration and captions
         run: python video.py
-      - name: Upload finished MP4
+      - name: Upload both finished MP4 files
         uses: actions/upload-artifact@v4
         with:
-          name: horror-short
-          path: the-message-came-from-inside.mp4
+          name: room-309-roblox-horror-parts
+          path: |
+            the-girl-in-room-309-part-1.mp4
+            the-girl-in-room-309-part-2.mp4
           if-no-files-found: error
           retention-days: 7
