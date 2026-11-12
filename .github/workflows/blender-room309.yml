@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'blender_render.py'
+      - 'postprocess.py'
       - '.github/workflows/blender-room309.yml'
 permissions:
   contents: read
@@ -29,9 +30,11 @@ jobs:
           sudo apt-get install -y blender ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
           pip install edge-tts
-      - name: Render 3D episode, voiceover and captions
+      - name: Render 3D episode
         run: blender -b -t 2 --python blender_render.py
-      - name: Generate voiceover and mux final MP4\n        run: python postprocess.py\n      - name: Upload finished episode
+      - name: Generate voiceover and mux final MP4
+        run: python postprocess.py
+      - name: Upload finished episode
         uses: actions/upload-artifact@v4
         with:
           name: room-309-part-${{ matrix.part }}
