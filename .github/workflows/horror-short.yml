@@ -1,0 +1,34 @@
+name: Create horror Short
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'video.py'
+      - '.github/workflows/horror-short.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install FFmpeg and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          pip install pillow edge-tts
+      - name: Generate vertical horror video with voice and captions
+        run: python video.py
+      - name: Upload finished MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: horror-short
+          path: the-message-came-from-inside.mp4
+          if-no-files-found: error
+          retention-days: 7
