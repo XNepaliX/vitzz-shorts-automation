@@ -91,7 +91,7 @@ def setup(part):
  # animate phone pulse and mirror highlight
  for f,s in [(1,1),(30,1.18),(60,1),(90,1.18),(120,1)]:
   phone.scale=(s,s,s); phone.keyframe_insert(data_path="scale",frame=f)
- sc.render.filepath=os.path.join(OUT,f"raw{part}.mp4"); sc.render.image_settings.file_format="FFMPEG"; sc.render.ffmpeg.format="MPEG4"; sc.render.ffmpeg.codec="H264"; sc.render.ffmpeg.constant_rate_factor="MEDIUM"; sc.render.ffmpeg.ffmpeg_preset="GOOD"
+ sc.render.filepath=os.path.join(OUT,f"raw{part}_"); sc.render.image_settings.file_format="PNG"; sc.render.image_settings.color_mode="RGB"
  return sc
 STORIES=[
  ("At 3:07 in the morning, Arjun received a call from his own phone number. He answered. A little girl whispered, Please, don't let him come inside. Arjun asked who she was. She said, I'm you, from tomorrow. The call died. Three slow knocks came from his bedroom door. A voice outside said, Arjun, open up. It's me. It sounded exactly like him. His phone buzzed. A message from his own number: Whatever happens, do not open the door. The knocking became violent. Arjun looked through the keyhole. The hallway was empty. But he heard breathing behind him. A little girl stood in the corner, holding an old photograph. It showed Arjun beside her, standing in this very room. On the back was a date, twenty years in the future. The girl looked up and whispered, You're not supposed to be alive tonight. Then every light went out.", "STAY TUNED FOR PART 2. TO BE CONTINUED."),
