@@ -84,7 +84,7 @@ def make_visual():
         draw.text((110, y), item, font=title_font, fill="white")
         y += 105
     draw.rounded_rectangle((110, 1510, 970, 1660), radius=35, fill=(10, 15, 32))
-    draw.text((150, 1550), "VITZZ  •  @vitzzzz-p9v", font=body_font, fill="white")
+    draw.text((150, 1550), "VITZZ", font=body_font, fill="white")
     img.save(OUT / "visual.png")
 
 def render_video():
