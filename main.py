@@ -43,6 +43,8 @@ def load_font(size, bold=False):
 TITLE = load_font(43, True)
 LABEL = load_font(23, True)
 SMALL = load_font(18)
+CAPTION_FONT = load_font(24, True)
+CAPTION_SEGMENTS = []
 CAPTION_STYLE = (
     "FontName=DejaVu Sans,FontSize=20,Bold=1,"
     "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,"
@@ -65,20 +67,27 @@ def timestamp(seconds):
     return f"{hours:02}:{minutes:02}:{secs:02},{millis:03}"
 
 def make_captions():
+    global CAPTION_SEGMENTS
     audio_duration = float(subprocess.check_output([
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", str(OUT / "voiceover.mp3")
     ], text=True).strip())
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", script) if s.strip()]
-    weights = [max(1, len(s.split())) for s in sentences]
-    total = sum(weights)
-    # Captions are mapped across the actual narration, and never exceed the film.
+    words = []
+    for sentence in sentences:
+        words.extend(sentence.split())
+    groups = [words[i:i+4] for i in range(0, len(words), 4)]
+    total_words = max(1, len(words))
     cursor = 0.0
     rows = []
-    for i, (sentence, weight) in enumerate(zip(sentences, weights), 1):
-        end = audio_duration if i == len(sentences) else cursor + audio_duration * weight / total
-        rows.append(f"{i}\n{timestamp(cursor)} --> {timestamp(end)}\n{sentence}\n")
-        cursor = end
+    CAPTION_SEGMENTS = []
+    for i, group in enumerate(groups, 1):
+        phrase = " ".join(group)
+        start_time = cursor
+        end_time = audio_duration if i == len(groups) else cursor + audio_duration * len(group) / total_words
+        CAPTION_SEGMENTS.append((start_time, end_time, phrase))
+        rows.append(f"{i}\n{timestamp(start_time)} --> {timestamp(end_time)}\n{phrase}\n")
+        cursor = end_time
     (OUT / "captions.srt").write_text("\n".join(rows), encoding="utf-8")
     return audio_duration
 
@@ -191,6 +200,31 @@ def draw_scene(frame_index):
             x, y = cx+math.cos(a)*185, cy+math.sin(a)*185
             d.ellipse((x-6,y-6,x+6,y+6), fill=(130,235,255,220))
 
+    # Burn concise phrase-by-phrase captions into the animated frames.
+    active_caption = next((item[2] for item in CAPTION_SEGMENTS if item[0] <= t < item[1]), "")
+    if active_caption:
+        max_width = WIDTH - 100
+        caption_words = active_caption.split()
+        caption_lines, caption_line = [], ""
+        for word in caption_words:
+            candidate = (caption_line + " " + word).strip()
+            if d.textbbox((0, 0), candidate, font=CAPTION_FONT)[2] > max_width:
+                if caption_line:
+                    caption_lines.append(caption_line)
+                caption_line = word
+            else:
+                caption_line = candidate
+        if caption_line:
+            caption_lines.append(caption_line)
+        box_top = 860
+        box_bottom = 860 + 48 * len(caption_lines) + 26
+        d.rounded_rectangle((38, box_top, WIDTH-38, box_bottom), radius=22,
+                            fill=(3, 8, 27, 220), outline=(90, 215, 255, 210), width=2)
+        for line_index, caption_line in enumerate(caption_lines):
+            d.text((WIDTH//2, box_top+14+line_index*48), caption_line,
+                   font=CAPTION_FONT, fill=(255,255,255,255), anchor="mt",
+                   stroke_width=1, stroke_fill=(0,0,0,255))
+
     # Progress line makes the film feel like one continuous explainer.
     d.rounded_rectangle((50, 1045, WIDTH-50, 1057), radius=6, fill=(255,255,255,45))
     d.rounded_rectangle((50, 1045, 50+(WIDTH-100)*(t/DURATION), 1057),
@@ -204,13 +238,12 @@ def make_frames():
         draw_scene(i).save(FRAMES / f"frame_{i:05d}.jpg", quality=88)
 
 def render_video():
-    subtitle_path = str((OUT / "captions.srt").resolve())
     frames_pattern = str((FRAMES / "frame_%05d.jpg").resolve())
     video_path = OUT / "short.mp4"
     run([
         "ffmpeg", "-y", "-framerate", str(FPS), "-i", frames_pattern,
         "-i", str(OUT / "voiceover.mp3"),
-        "-vf", f"scale=1080:1920:flags=lanczos,subtitles='{subtitle_path}':force_style='{CAPTION_STYLE}'",
+        "-vf", "scale=1080:1920:flags=lanczos",
         "-af", "apad", "-t", str(DURATION), "-r", "30", "-c:v", "libx264",
         "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
