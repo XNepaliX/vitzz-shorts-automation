@@ -9,11 +9,11 @@ import asyncio
 OUT = Path("output")
 OUT.mkdir(exist_ok=True)
 
-topic = os.getenv("SHORT_TOPIC", "A strange fact about the human brain").strip()
+topic = os.getenv("SHORT_TOPIC", "Your brain stays active while you sleep").strip()
 script = os.getenv("SHORT_SCRIPT", "").strip() or (
-    f"Here's a surprising fact about {topic.lower()}. "
-    "Your brain is constantly processing information, even when you are resting. "
-    "Follow vitzz for more interesting facts."
+    "Your brain does not switch off when you sleep. "
+    "It helps organize and strengthen some memories while you rest. "
+    "That is one reason sleep is important for learning."
 )
 
 def run(cmd):
