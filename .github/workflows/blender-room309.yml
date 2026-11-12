@@ -1,4 +1,4 @@
-name: Render Room 309 in Blender 3D
+name: Render and publish Room 309 episodes
 on:
   workflow_dispatch:
   push:
@@ -6,6 +6,8 @@ on:
     paths:
       - 'blender_render.py'
       - 'postprocess.py'
+      - 'validate_video.py'
+      - 'upload_youtube.py'
       - '.github/workflows/blender-room309.yml'
 permissions:
   contents: read
@@ -29,12 +31,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y blender ffmpeg libegl1 libgl1 libglib2.0-0 fonts-dejavu-core
           python -m pip install --upgrade pip
-          pip install edge-tts
-      - name: Render 3D episode
-        run: blender -b -t 2 --python blender_render.py
+          pip install edge-tts google-api-python-client google-auth google-auth-httplib2
+      - name: Render 3D episode (retry once on transient failure)
+        shell: bash
+        run: |
+          set +e
+          for attempt in 1 2; do
+            echo "Blender render attempt $attempt/2"
+            blender -b -t 2 --python blender_render.py
+            result=$?
+            if [ "$result" -eq 0 ]; then exit 0; fi
+            echo "Blender exited with $result"
+            if [ "$attempt" -lt 2 ]; then sleep 20; fi
+          done
+          exit "$result"
       - name: Generate voiceover and mux final MP4
         run: python postprocess.py
-      - name: Upload finished episode
+      - name: Verify finished MP4
+        run: python validate_video.py "the-girl-in-room-309-part-${{ matrix.part }}.mp4"
+      - name: Upload verified episode to YouTube
+        if: ${{ secrets.YT_CLIENT_ID != '' && secrets.YT_CLIENT_SECRET != '' && secrets.YT_REFRESH_TOKEN != '' }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python upload_youtube.py "the-girl-in-room-309-part-${{ matrix.part }}.mp4"
+      - name: Explain publishing setup if credentials are missing
+        if: ${{ secrets.YT_CLIENT_ID == '' || secrets.YT_CLIENT_SECRET == '' || secrets.YT_REFRESH_TOKEN == '' }}
+        run: |
+          echo "::warning::Render succeeded, but YouTube publishing was skipped. Add YT_CLIENT_ID, YT_CLIENT_SECRET, and YT_REFRESH_TOKEN in repository Actions secrets."
+      - name: Upload finished episode artifact
         uses: actions/upload-artifact@v4
         with:
           name: room-309-part-${{ matrix.part }}
