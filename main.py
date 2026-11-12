@@ -26,6 +26,10 @@ script = os.getenv("SHORT_SCRIPT", "").strip() or (
     "Sleep also supports attention, mood, and learning the next day. "
     "That is why staying up all night before an exam can backfire. "
     "A good night's sleep is not wasted time. It is part of how your brain learns. "
+    "Think of it as a night shift: brain cells communicate, connections are adjusted, "
+    "and the brain clears some waste products that build up while you are awake. "
+    "Sleep is not one uniform state; your brain cycles through several stages, "
+    "each with its own pattern of activity. "
     "So tonight, give your brain the rest it needs."
 )
 
