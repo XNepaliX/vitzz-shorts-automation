@@ -80,7 +80,7 @@ def main():
             f.write(f"{i}\n{stamp(s)} --> {stamp(max(s+0.08,e))}\n{word}\n\n")
 
     video = out / "viceclips-private-test.mp4"
-    subtitle_filter = "subtitles=captions.srt:force_style='FontName=Arial,FontSize=18,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=120'"
+    subtitle_filter = "subtitles=viceclips-output/captions.srt:force_style='FontName=Arial,FontSize=18,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=120'"
     run(["ffmpeg", "-y", "-ss", str(best_start), "-i", str(source), "-t", str(end-best_start),
          "-vf", f"crop='if(gt(iw/ih,9/16),ih*9/16,iw)':'if(gt(iw/ih,9/16),ih,iw*16/9)',"
                 f"scale=1080:1920:force_original_aspect_ratio=decrease,"
