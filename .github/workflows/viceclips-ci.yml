@@ -6,6 +6,7 @@ on:
       - "viceclips/**"
       - ".github/workflows/viceclips-ci.yml"
       - ".github/workflows/viceclips-private-test.yml"
+      - ".gitmodules"
   pull_request:
     paths:
       - "viceclips/**"
@@ -17,8 +18,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: viceclips-ci-\${{ github.ref }}
-  cancel-in-progress: true
+  group: viceclips-ci-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   validate:
