@@ -1,0 +1,39 @@
+name: ViceClips CI
+
+on:
+  push:
+    paths:
+      - "viceclips/**"
+      - ".github/workflows/viceclips-ci.yml"
+      - ".github/workflows/viceclips-private-test.yml"
+  pull_request:
+    paths:
+      - "viceclips/**"
+      - ".github/workflows/viceclips-ci.yml"
+      - ".github/workflows/viceclips-private-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: viceclips-ci-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Check Python syntax
+        run: python -m py_compile viceclips/process_video.py viceclips/test_render.py
+      - name: Run selection and FFmpeg render tests
+        run: python -m unittest viceclips.test_render -v
