@@ -1,0 +1,66 @@
+name: ViceClips — make a private test clip
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "URL of a video you own or are explicitly allowed to reuse"
+        required: true
+        type: string
+      rights_confirmed:
+        description: "Confirm you have permission to download, edit, and reuse this source"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: viceclips-private-test
+  cancel-in-progress: false
+
+jobs:
+  make-private-clip:
+    if: inputs.rights_confirmed == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: viceclips/requirements.txt
+
+      - name: Install processing dependencies
+        run: python -m pip install -r viceclips/requirements.txt
+
+      - name: Process source into a vertical captioned clip
+        run: |
+          python viceclips/process_video.py --url "${{ inputs.source_url }}" --output viceclips-output
+
+      - name: Save private test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: viceclips-test
+          path: viceclips-output/
+          retention-days: 7
+          if-no-files-found: error
+
+    steps:
+      - name: Reject unconfirmed source rights
+        if: inputs.rights_confirmed != 'yes'
+        run: |
+          echo "Permission confirmation is required. No source was downloaded."
+          exit 1
