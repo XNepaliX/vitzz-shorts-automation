@@ -4,13 +4,14 @@ This folder is isolated from the existing channel workflow. It adds no channel n
 
 ## Current phase
 
-A manually triggered GitHub Actions job accepts one source video URL, downloads it, transcribes it, selects a speech-dense 35-second window, renders a 9:16 MP4 with burned-in captions, and uploads the result as a private workflow artifact.
+A manually triggered GitHub Actions job accepts one source video URL, downloads it, transcribes it, selects a speech-dense 35-second window using an efficient interval sweep, renders a 9:16 MP4 with burned-in captions, and uploads the result as a private workflow artifact. The subtitle path is resolved from the selected output folder.
 
 - No YouTube publishing or account connection.
 - No automatic public posting.
 - The source must be yours or explicitly licensed for reuse. Confirm this in the workflow input before running.
 - GitHub-hosted runners are temporary; artifacts are retained for 7 days.
-- This is a lightweight first processing stage, not the full PeakCut live-stream system. It does not monitor or capture streams continuously.
+- This is a lightweight batch pipeline, not the full PeakCut live-stream system. It does not monitor or capture streams continuously.
+- A separate CI workflow runs Python syntax checks, unit tests for highlight-window selection, and a synthetic FFmpeg render test. It does not download a real stream or publish anything.
 
 ## Run
 
@@ -22,6 +23,10 @@ A manually triggered GitHub Actions job accepts one source video URL, downloads 
 6. Wait for the job, then download the `viceclips-test` artifact.
 
 The first run may take several minutes because it installs video and speech-processing dependencies. YouTube may block downloads from cloud runner IP addresses; if that happens, use an authorized direct video file instead (direct-file input support can be added next).
+
+## Validation
+
+The CI test workflow runs automatically when files under `viceclips/` change. It creates a synthetic two-second video, burns in a test subtitle, and checks that the output is 1080×1920. It also compares the optimized clip-window selector against a brute-force reference on a deterministic sample.
 
 ## Limits
 
