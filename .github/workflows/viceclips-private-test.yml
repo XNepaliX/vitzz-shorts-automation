@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   make-private-clip:
-    if: inputs.rights_confirmed == 'yes'
+    if: github.event_name == 'workflow_dispatch' && inputs.rights_confirmed == 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
