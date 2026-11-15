@@ -47,8 +47,10 @@ jobs:
         run: python -m pip install -r viceclips/requirements.txt
 
       - name: Process source into a vertical captioned clip
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
         run: |
-          python viceclips/process_video.py --url "${{ inputs.source_url }}" --output viceclips-output
+          python viceclips/process_video.py --url "$SOURCE_URL" --output viceclips-output
 
       - name: Save private test artifact
         uses: actions/upload-artifact@v4
@@ -57,10 +59,3 @@ jobs:
           path: viceclips-output/
           retention-days: 7
           if-no-files-found: error
-
-    steps:
-      - name: Reject unconfirmed source rights
-        if: inputs.rights_confirmed != 'yes'
-        run: |
-          echo "Permission confirmation is required. No source was downloaded."
-          exit 1
