@@ -13,6 +13,10 @@ A manually triggered GitHub Actions job accepts one source video URL, downloads 
 - This is a lightweight batch pipeline, not the full PeakCut live-stream system. It does not monitor or capture streams continuously.
 - A separate CI workflow runs Python syntax checks, unit tests for highlight-window selection, and a synthetic FFmpeg render test. It does not download a real stream or publish anything.
 
+## Full live-clipping engine
+
+The upstream PeakCut application is pinned as a Git submodule at `viceclips/peakcut-upstream`. Follow [PEAKCUT_SETUP.md](PEAKCUT_SETUP.md) to fetch and run it on a persistent computer or server. The submodule provides the full live-stream dashboard and clipping engine; the GitHub Actions pipeline below remains a separate temporary batch-test path.
+
 ## Run
 
 1. Open the repository's **Actions** tab.
