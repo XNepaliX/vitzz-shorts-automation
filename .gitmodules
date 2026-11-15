@@ -1,0 +1,3 @@
+[submodule "viceclips/peakcut-upstream"]
+	path = viceclips/peakcut-upstream
+	url = https://github.com/haziqahmedqasmi/PeakCut.git
