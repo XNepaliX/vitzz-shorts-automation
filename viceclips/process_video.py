@@ -69,13 +69,13 @@ def main():
     args = parser.parse_args()
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    source = out / "source.mp4"
 
     run([
         "yt-dlp", "--no-warnings", "--no-playlist", "-f", "bv*+ba/b",
         "--merge-output-format", "mp4", "-o", str(out / "source.%(ext)s"),
         args.url
     ])
+    source = out / "source.mp4"
     if not source.exists():
         candidates = sorted(out.glob("source.*"), key=lambda p: p.stat().st_size, reverse=True)
         if not candidates:
@@ -91,9 +91,7 @@ def main():
 
     from faster_whisper import WhisperModel
     model = WhisperModel("base", device="cpu", compute_type="int8")
-    segments, info = model.transcribe(
-        str(audio), vad_filter=True, word_timestamps=True
-    )
+    segments, info = model.transcribe(str(audio), vad_filter=True, word_timestamps=True)
     rows = []
     for segment in segments:
         for word in segment.words or []:
@@ -113,8 +111,7 @@ def main():
     caption_path = out / "captions.srt"
     active = [
         (max(0.0, start - best_start), min(clip_len, finish - best_start), word)
-        for start, finish, word in rows
-        if start < end and finish > best_start
+        for start, finish, word in rows if start < end and finish > best_start
     ]
     with caption_path.open("w", encoding="utf-8") as handle:
         for index, (start, finish, word) in enumerate(active, 1):
@@ -131,16 +128,18 @@ def main():
         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(video)
     ])
 
+    provider = best.get("provider", "AI")
     report = {
         "video": str(video),
         "duration": round(end - best_start, 2),
         "start": round(best_start, 2),
         "language": info.language,
+        "ai_provider": provider,
         "ai_score": best["score"],
         "ai_hook": best["hook"],
         "ai_reason": best["reason"],
         "ranked_candidates": highlights,
-        "selection_method": "Gemini transcript-based highlight ranking",
+        "selection_method": f"{provider} transcript-based highlight ranking",
         "visual_gameplay_analysis": False,
         "publishing": "DISABLED - private review artifact only"
     }
@@ -153,7 +152,7 @@ def main():
         "#GTA6 #GTAVI #Gaming #Shorts\n\n"
         f"Source URL: {args.url}\n"
         f"Selected range: {best_start:.2f}-{end:.2f}s\n"
-        f"Gemini score: {best['score']}/100\n"
+        f"{provider} score: {best['score']}/100\n"
         f"Hook: {best['hook']}\nReason: {best['reason']}\n"
         "Publishing: DISABLED — private review artifact only.\n",
         encoding="utf-8"
