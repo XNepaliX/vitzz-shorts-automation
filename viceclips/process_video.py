@@ -4,7 +4,25 @@ import json
 import subprocess
 from pathlib import Path
 
-from highlight_ranker import rank_highlights
+try:
+    from .highlight_ranker import rank_highlights
+except ImportError:
+    from highlight_ranker import rank_highlights
+
+
+def select_speech_dense_window(rows, duration, clip_len):
+    """Legacy selector retained for tests/fallback diagnostics; returns (start, count)."""
+    if not rows or duration <= 0 or clip_len <= 0:
+        return 0.0, 0
+    latest = max(0.0, duration - clip_len)
+    candidates = {0.0, latest}
+    candidates.update(max(0.0, min(float(start), latest)) for start, _, _ in rows)
+    best_start, best_score = 0.0, -1
+    for start in sorted(candidates):
+        score = sum(1 for begin, finish, _ in rows if begin < start + clip_len and finish > start)
+        if score > best_score:
+            best_start, best_score = start, score
+    return best_start, max(0, best_score)
 
 
 def run(args):
