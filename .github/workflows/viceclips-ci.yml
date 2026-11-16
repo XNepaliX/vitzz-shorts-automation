@@ -35,6 +35,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
       - name: Check Python syntax
-        run: python -m py_compile viceclips/process_video.py viceclips/test_render.py
-      - name: Run selection and FFmpeg render tests
+        run: python -m py_compile viceclips/process_video.py viceclips/highlight_ranker.py viceclips/test_render.py
+      - name: Run selection, provider and FFmpeg render tests
         run: python -m unittest viceclips.test_render -v

@@ -1,14 +1,14 @@
-name: ViceClips — make a private AI-ranked test clip
+name: ViceClips — private AI-ranked test clip
 
 on:
   workflow_dispatch:
     inputs:
       source_url:
-        description: "URL of a video you own or are explicitly allowed to reuse"
+        description: "Authorized YouTube URL or direct MP4 download URL"
         required: true
         type: string
       rights_confirmed:
-        description: "Confirm permission to download, edit, and reuse this source"
+        description: "Confirm permission to download, edit and reuse this source"
         required: true
         type: choice
         options:
@@ -30,32 +30,26 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Install FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: viceclips/requirements.txt
-
       - name: Install processing dependencies
-        run: python -m pip install -r viceclips/requirements.txt
-
-      - name: Process source with OpenAI or Gemini highlight ranking
+        run: python -m pip install --upgrade pip && python -m pip install -r viceclips/requirements.txt
+      - name: Process source with OpenAI or Gemini
         env:
           SOURCE_URL: ${{ inputs.source_url }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-4o-mini
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-2.5-flash
-        run: |
-          python viceclips/process_video.py --url "$SOURCE_URL" --output viceclips-output
-
+        run: python viceclips/process_video.py --url "$SOURCE_URL" --output viceclips-output
       - name: Save private test artifact
         uses: actions/upload-artifact@v4
         with:
