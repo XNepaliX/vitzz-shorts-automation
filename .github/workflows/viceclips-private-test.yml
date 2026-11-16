@@ -1,4 +1,4 @@
-name: ViceClips — make a private test clip
+name: ViceClips — make a private AI-ranked test clip
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       rights_confirmed:
-        description: "Confirm you have permission to download, edit, and reuse this source"
+        description: "Confirm permission to download, edit, and reuse this source"
         required: true
         type: choice
         options:
@@ -26,7 +26,7 @@ jobs:
   make-private-clip:
     if: github.event_name == 'workflow_dispatch' && inputs.rights_confirmed == 'yes'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -46,16 +46,18 @@ jobs:
       - name: Install processing dependencies
         run: python -m pip install -r viceclips/requirements.txt
 
-      - name: Process source into a vertical captioned clip
+      - name: Process source with Gemini highlight ranking
         env:
           SOURCE_URL: ${{ inputs.source_url }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.5-flash
         run: |
           python viceclips/process_video.py --url "$SOURCE_URL" --output viceclips-output
 
       - name: Save private test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: viceclips-test
+          name: viceclips-ai-ranked-test
           path: viceclips-output/
           retention-days: 7
           if-no-files-found: error

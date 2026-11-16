@@ -4,8 +4,12 @@ import json
 import subprocess
 from pathlib import Path
 
+from highlight_ranker import rank_highlights
+
+
 def run(args):
     subprocess.run(args, check=True)
+
 
 def probe_duration(path):
     value = subprocess.check_output([
@@ -14,9 +18,9 @@ def probe_duration(path):
     ], text=True).strip()
     return float(value)
 
+
 def build_video_filter(caption_path):
-    # Use an absolute subtitle path so --output works from any directory.
-    subtitle_file = Path(caption_path).resolve().as_posix().replace(":", "\\:")
+    subtitle_file = Path(caption_path).resolve().as_posix().replace(":", r"\\:")
     subtitles = (
         f"subtitles='{subtitle_file}':"
         "force_style='FontName=Arial,FontSize=18,Bold=1,"
@@ -32,28 +36,6 @@ def build_video_filter(caption_path):
     )
 
 
-def select_speech_dense_window(rows, duration, clip_len):
-    # O(n log n) interval sweep; avoids the old O(n^2) scan on long recordings.
-    candidates = [max(0.0, min(duration - clip_len, start - clip_len / 2))
-                  for start, _, _ in rows]
-    candidates.extend([0.0, max(0.0, duration - clip_len)])
-    candidates.sort()
-
-    active_ends = []
-    next_word = 0
-    best_start, best_score = 0.0, -1
-    for start in candidates:
-        window_end = start + clip_len
-        while next_word < len(rows) and rows[next_word][0] < window_end:
-            heapq.heappush(active_ends, rows[next_word][1])
-            next_word += 1
-        while active_ends and active_ends[0] <= start:
-            heapq.heappop(active_ends)
-        if len(active_ends) > best_score:
-            best_start, best_score = start, len(active_ends)
-    return best_start, best_score
-
-
 def stamp(seconds):
     ms = max(0, int(seconds * 1000))
     h, ms = divmod(ms, 3_600_000)
@@ -61,74 +43,105 @@ def stamp(seconds):
     s, ms = divmod(ms, 1000)
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
+
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--url", required=True)
-    p.add_argument("--output", default="viceclips-output")
-    a = p.parse_args()
-    out = Path(a.output)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", required=True)
+    parser.add_argument("--output", default="viceclips-output")
+    args = parser.parse_args()
+    out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     source = out / "source.mp4"
 
-    run(["yt-dlp", "--no-warnings", "--no-playlist", "-f", "bv*+ba/b",
-         "--merge-output-format", "mp4", "-o", str(out / "source.%(ext)s"), a.url])
+    run([
+        "yt-dlp", "--no-warnings", "--no-playlist", "-f", "bv*+ba/b",
+        "--merge-output-format", "mp4", "-o", str(out / "source.%(ext)s"),
+        args.url
+    ])
     if not source.exists():
-        candidates = sorted(out.glob("source.*"), key=lambda item: item.stat().st_size, reverse=True)
+        candidates = sorted(out.glob("source.*"), key=lambda p: p.stat().st_size, reverse=True)
         if not candidates:
-            raise RuntimeError("yt-dlp did not create a source video")
+            raise RuntimeError("yt-dlp did not create a source video.")
         source = candidates[0]
 
     duration = probe_duration(source)
     if duration < 12:
-        raise RuntimeError("Source video is too short for a useful highlight")
+        raise RuntimeError("Source video is too short for a useful highlight.")
 
     audio = out / "audio.wav"
-    run(["ffmpeg", "-y", "-i", str(source), "-vn", "-ac", "1", "-ar", "16000",
-         str(audio)])
+    run(["ffmpeg", "-y", "-i", str(source), "-vn", "-ac", "1", "-ar", "16000", str(audio)])
 
     from faster_whisper import WhisperModel
     model = WhisperModel("base", device="cpu", compute_type="int8")
-    segments, info = model.transcribe(str(audio), vad_filter=True, word_timestamps=True)
+    segments, info = model.transcribe(
+        str(audio), vad_filter=True, word_timestamps=True
+    )
     rows = []
-    for seg in segments:
-        words = seg.words or []
-        for w in words:
-            if w.word.strip():
-                rows.append((float(w.start), float(w.end), w.word.strip()))
+    for segment in segments:
+        for word in segment.words or []:
+            value = word.word.strip()
+            if value:
+                rows.append((float(word.start), float(word.end), value))
+    rows.sort(key=lambda row: row[0])
     if not rows:
-        raise RuntimeError("No speech was detected; cannot create captioned clip")
+        raise RuntimeError("No speech detected; cannot build transcript-ranked clips.")
 
     clip_len = min(35.0, max(12.0, duration))
-    # Select a speech-dense window efficiently, even for long streams.
-    rows.sort(key=lambda row: row[0])
-    best_start, best_score = select_speech_dense_window(rows, duration, clip_len)
+    highlights = rank_highlights(rows, duration, clip_len=clip_len, max_results=5)
+    best = highlights[0]
+    best_start = best["start"]
     end = min(duration, best_start + clip_len)
 
     caption_path = out / "captions.srt"
-    active = [(max(0, s-best_start), min(clip_len, e-best_start), w)
-              for s, e, w in rows if s < end and e > best_start]
-    with caption_path.open("w", encoding="utf-8") as f:
-        for i, (s, e, word) in enumerate(active, 1):
-            f.write(f"{i}\n{stamp(s)} --> {stamp(max(s+0.08,e))}\n{word}\n\n")
+    active = [
+        (max(0.0, start - best_start), min(clip_len, finish - best_start), word)
+        for start, finish, word in rows
+        if start < end and finish > best_start
+    ]
+    with caption_path.open("w", encoding="utf-8") as handle:
+        for index, (start, finish, word) in enumerate(active, 1):
+            handle.write(
+                f"{index}\n{stamp(start)} --> {stamp(max(start + 0.08, finish))}\n"
+                f"{word}\n\n"
+            )
 
     video = out / "viceclips-private-test.mp4"
-    video_filter = build_video_filter(caption_path)
-    run(["ffmpeg", "-y", "-ss", str(best_start), "-i", str(source), "-t", str(end-best_start),
-         "-vf", video_filter,
-         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(video)])
+    run([
+        "ffmpeg", "-y", "-ss", str(best_start), "-i", str(source),
+        "-t", str(end - best_start), "-vf", build_video_filter(caption_path),
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(video)
+    ])
 
-    metadata = out / "upload-metadata.txt"
-    metadata.write_text(
+    report = {
+        "video": str(video),
+        "duration": round(end - best_start, 2),
+        "start": round(best_start, 2),
+        "language": info.language,
+        "ai_score": best["score"],
+        "ai_hook": best["hook"],
+        "ai_reason": best["reason"],
+        "ranked_candidates": highlights,
+        "selection_method": "Gemini transcript-based highlight ranking",
+        "visual_gameplay_analysis": False,
+        "publishing": "DISABLED - private review artifact only"
+    }
+    (out / "highlight-report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    (out / "upload-metadata.txt").write_text(
         "Suggested title: GTA 6 — best moment (review before use)\n"
-        "Description: Edited highlight. Add source credit and verify reuse permission.\n"
+        "Description: Edited gaming highlight. Add source credit and verify reuse permission.\n"
         "#GTA6 #GTAVI #Gaming #Shorts\n\n"
-        f"Source URL: {a.url}\nSelected range: {best_start:.2f}s–{end:.2f}s\n"
-        "Publishing: DISABLED — private test artifact only.\n",
-        encoding="utf-8")
-    print(json.dumps({"video": str(video), "duration": end-best_start,
-                      "start": best_start, "speech_words": best_score,
-                      "language": info.language}, indent=2))
+        f"Source URL: {args.url}\n"
+        f"Selected range: {best_start:.2f}-{end:.2f}s\n"
+        f"Gemini score: {best['score']}/100\n"
+        f"Hook: {best['hook']}\nReason: {best['reason']}\n"
+        "Publishing: DISABLED — private review artifact only.\n",
+        encoding="utf-8"
+    )
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+
 
 if __name__ == "__main__":
     main()
